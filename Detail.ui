@@ -311,36 +311,26 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout_2">
       <item>
-       <widget class="QTableWidget" name="ThreadWidget">
-        <column>
-         <property name="text">
-          <string>进程名</string>
-         </property>
-         <property name="textAlignment">
-          <set>AlignCenter</set>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>pid</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>父进程</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>父进程PID</string>
-         </property>
-        </column>
-        <column>
-         <property name="text">
-          <string>运行状态</string>
-         </property>
-        </column>
+       <widget class="QPushButton" name="startThreadctrl">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>开始</string>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
        </widget>
+      </item>
+      <item>
+       <widget class="QListWidget" name="Threadlist"/>
       </item>
      </layout>
     </widget>

