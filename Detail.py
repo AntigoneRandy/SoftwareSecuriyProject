@@ -144,6 +144,8 @@ class Ui_Form(object):
         sizePolicy.setVerticalStretch(0)
         sizePolicy.setHeightForWidth(self.startThreadctrl.sizePolicy().hasHeightForWidth())
         self.startThreadctrl.setSizePolicy(sizePolicy)
+        self.startThreadctrl.setDefault(False)
+        self.startThreadctrl.setFlat(False)
         self.startThreadctrl.setObjectName("startThreadctrl")
         self.verticalLayout_2.addWidget(self.startThreadctrl)
         self.Threadlist = QtWidgets.QListWidget(self.groupBox_3)
