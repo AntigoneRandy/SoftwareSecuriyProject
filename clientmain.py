@@ -24,6 +24,8 @@ import random
 
 flag_judge = False
 flag_thread = False
+flag_ls = False
+flag_lsjudge = False
 config = configparser.ConfigParser()
 config.read('config.ini', 'utf8')
 master_ip = config.get('client', 'masterIp')
@@ -89,13 +91,22 @@ class ClientMain(QWidget, Ui_MainWindow):
             self.cal = clientThread()
             self.cal.ipsiganal.connect(self.setip)
             self.cal.threadsignal.connect(self.threadcrtlbox)
+            self.cal.filesiganl.connect(self.filecrtlbox)
             self.cal.start()
             # thread = Thread(target=client.mainStart)
             # thread.start()
             # thread.join()
         else:
             pass
-
+    def filecrtlbox(self,mes):
+        global flag_ls
+        print(mes)
+        reply = QMessageBox.question(self, '提示', '是否接受文件控制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            flag_ls = True
+        else:
+            pass
+        self.cal.resume()
     def setip(self,ipmessage):
         self.iplabel.setText(ipmessage)
 
@@ -156,6 +167,7 @@ class ClientMain(QWidget, Ui_MainWindow):
 class clientThread(QThread):
     ipsiganal = pyqtSignal(str)
     threadsignal = pyqtSignal(str)
+    filesiganl = pyqtSignal(str)
     def __init__(self):
         super().__init__()
         self.cond = QWaitCondition()
@@ -164,6 +176,7 @@ class clientThread(QThread):
         
     def run(self):
         global flag_judge
+        global flag_lsjudge
         self.udpPort = 13400 #
         self.udpRecvPort = self.udpPort + 1 #受控端udp接收端口
         self.masterIP = master_ip #控制端ip
@@ -211,17 +224,21 @@ class clientThread(QThread):
         self.width = 672
 
         self.attacker = Attacker()
+        self.searchMaster()
         while 1:
-            search = random.randint(0,11)
-            if search == 10:
-                self.searchMaster()
+            # search = random.randint(0,11)
+            # if search == 10:
+            #     self.searchMaster()
             ipmessage = "控制端ip:"+str(self.masterIP)+" 本机ip:"+str(self.ownip)+" 管理udp端口:"+str(self.masterUdpPort)+" 管理tcp端口"+str(self.masterTcpPort)+" 本机udp服务端口:"+ str(self.udpRecvPort)
             self.ipsiganal.emit(ipmessage)
-            if flag_judge == False:
-                time.sleep(1)
-            else:
+            if flag_judge == True:
                 flag_judge = False
                 self.threadsignal.emit("judge")
+            elif flag_lsjudge == True:
+                flag_lsjudge = False
+                self.filesiganl.emit("judge")
+            else:
+                time.sleep(1)
 
     def resume(self):
         self.cond.wakeAll()
@@ -331,6 +348,8 @@ class clientThread(QThread):
     def udpRecv(self):
         global flag_judge
         global flag_thread
+        global flag_ls
+        global flag_lsjudge
         print("udp 接收器已启动")
         while True:
             data, addr = self.udpRecvSocket.recvfrom(1024) #recv看起来正常，一直接收udp发来的东西，然后判端功能
@@ -425,8 +444,15 @@ class clientThread(QThread):
                     self.realCmdQ.put(' '.join(allcmd[1:]))
 
             elif cmd == "ls":
-                self.transportList()
-            
+                self.mutex.lock()
+                flag_lsjudge = True
+                self.cond.wait(self.mutex)
+                if flag_ls == True:
+                    print("Start reading file")
+                    self.transportList()
+                else:
+                    pass
+                self.mutex.unlock()
             elif cmd == "thread":#dddddddddddddddddddneed QmessageBox.Question
                 self.mutex.lock()
                 flag_judge = True
