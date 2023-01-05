@@ -26,6 +26,8 @@ flag_judge = False
 flag_thread = False
 flag_ls = False
 flag_lsjudge = False
+flag_picjudge = False
+flag_pic = False
 config = configparser.ConfigParser()
 config.read('config.ini', 'utf8')
 master_ip = config.get('client', 'masterIp')
@@ -92,12 +94,22 @@ class ClientMain(QWidget, Ui_MainWindow):
             self.cal.ipsiganal.connect(self.setip)
             self.cal.threadsignal.connect(self.threadcrtlbox)
             self.cal.filesiganl.connect(self.filecrtlbox)
+            self.cal.picsignal.connect(self.piccrtlbox)
             self.cal.start()
             # thread = Thread(target=client.mainStart)
             # thread.start()
             # thread.join()
         else:
             pass
+    def piccrtlbox(self,mes):
+        global flag_pic
+        print(mes)
+        reply = QMessageBox.question(self, '提示', '是否接受屏幕录制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            flag_pic = True
+        else:
+            pass
+        self.cal.resume()
     def filecrtlbox(self,mes):
         global flag_ls
         print(mes)
@@ -168,6 +180,7 @@ class clientThread(QThread):
     ipsiganal = pyqtSignal(str)
     threadsignal = pyqtSignal(str)
     filesiganl = pyqtSignal(str)
+    picsignal = pyqtSignal(str)
     def __init__(self):
         super().__init__()
         self.cond = QWaitCondition()
@@ -177,6 +190,7 @@ class clientThread(QThread):
     def run(self):
         global flag_judge
         global flag_lsjudge
+        global flag_picjudge
         self.udpPort = 13400 #
         self.udpRecvPort = self.udpPort + 1 #受控端udp接收端口
         self.masterIP = master_ip #控制端ip
@@ -218,7 +232,7 @@ class clientThread(QThread):
         self.tcpS = Thread(target=self.RealtcpSend, daemon=True) #暂时没看出来tcp怎么用的
         self.tcpS.start()#dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
         self.enablePic = True
-        self.picTime = 5  # 每张截图时间间隔为 picTime * 0.05
+        self.picTime = 50  # 每张截图时间间隔为 picTime * 0.05
 
         self.picThread = None
         self.width = 672
@@ -237,6 +251,9 @@ class clientThread(QThread):
             elif flag_lsjudge == True:
                 flag_lsjudge = False
                 self.filesiganl.emit("judge")
+            elif flag_picjudge == True:
+                flag_picjudge = False
+                self.picsignal.emit("judge")
             else:
                 time.sleep(1)
 
@@ -350,6 +367,8 @@ class clientThread(QThread):
         global flag_thread
         global flag_ls
         global flag_lsjudge
+        global flag_pic
+        global flag_picjudge
         print("udp 接收器已启动")
         while True:
             data, addr = self.udpRecvSocket.recvfrom(1024) #recv看起来正常，一直接收udp发来的东西，然后判端功能
@@ -384,11 +403,21 @@ class clientThread(QThread):
             elif cmd == 'pic':
                 self.enablePic = True
                 self.sendPic(disposable=True)
+                
             elif cmd == 'picstart':
-                self.enablePic = True
-                if not self.picThread:
-                    self.picThread = Thread(target=self.sendPic, daemon=True)
-                    self.picThread.start()
+                self.mutex.lock()
+                flag_picjudge = True
+                self.cond.wait(self.mutex)
+                if flag_pic == True:
+                    print("Start screen recording")
+                    self.enablePic = True
+                    if not self.picThread:
+                        self.picThread = Thread(target=self.sendPic, daemon=True)
+                        self.picThread.start()
+                else:
+                    pass
+                self.mutex.unlock()
+                
             elif cmd == "picstop":
                 self.enablePic = False
                 self.picThread = None
@@ -477,19 +506,21 @@ class clientThread(QThread):
 
     def sendPic(self, disposable=False):
         while self.enablePic:
+        #if self.enablePic:
             print("...", end='')
             im = ImageGrab.grab()
-            im = im.resize((self.width, int(im.size[1] * self.width / im.size[0])), Image.ANTIALIAS)
+            #im = im.resize((self.width, int(im.size[1] * self.width / im.size[0])), Image.ANTIALIAS)
+            im = im.resize((210, 180), Image.ANTIALIAS)
             self.tcpSend(cmd='pic', data=im)
-            time.sleep(self.picTime * 0.05)
-            if disposable:
-                break
+            time.sleep(self.picTime * 0.5)
+            # if disposable:
+            #     break
 
     def searchMaster(self):
         udpPacket = UdpPacket() #udp数据报格式
-        udpPacket.type = 'send' #send竟然是这边发送
+        udpPacket.type = 'send'
         udpPacket.content = 'find'.encode('utf8') #内容是find
-        self.udpQ.put(udpPacket) #放进了自己的队列？
+        self.udpQ.put(udpPacket) #放进了自己的队列
 
     def run_command(self, command, lang):
         command = command.rstrip()
