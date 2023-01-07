@@ -20,6 +20,7 @@ import time
 from queue import Queue
 from FileExplorer import FileExplorer
 from ThreadExplorer import ThreadExplorer
+from RegExplorer import RegExplorer
 import random
 
 flag_judge = False
@@ -28,6 +29,8 @@ flag_ls = False
 flag_lsjudge = False
 flag_picjudge = False
 flag_pic = False
+flag_regjudge = False
+flag_reg = False
 config = configparser.ConfigParser()
 config.read('config.ini', 'utf8')
 master_ip = config.get('client', 'masterIp')
@@ -95,6 +98,8 @@ class ClientMain(QWidget, Ui_MainWindow):
             self.cal.threadsignal.connect(self.threadcrtlbox)
             self.cal.filesiganl.connect(self.filecrtlbox)
             self.cal.picsignal.connect(self.piccrtlbox)
+            self.cal.regstartsignal.connect(self.regcrtlbox)
+            # hello
             self.cal.start()
             # thread = Thread(target=client.mainStart)
             # thread.start()
@@ -128,6 +133,16 @@ class ClientMain(QWidget, Ui_MainWindow):
         reply = QMessageBox.question(self, '提示', '是否接受进程控制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
             flag_thread = True
+        else:
+            pass
+        self.cal.resume()
+
+    def regcrtlbox(self,mes):
+        global flag_reg
+        print(mes)
+        reply = QMessageBox.question(self, '提示', '是否接受注册表控制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            flag_reg = True
         else:
             pass
         self.cal.resume()
@@ -181,6 +196,7 @@ class clientThread(QThread):
     threadsignal = pyqtSignal(str)
     filesiganl = pyqtSignal(str)
     picsignal = pyqtSignal(str)
+    regstartsignal = pyqtSignal(str)
     def __init__(self):
         super().__init__()
         self.cond = QWaitCondition()
@@ -191,6 +207,7 @@ class clientThread(QThread):
         global flag_judge
         global flag_lsjudge
         global flag_picjudge
+        global flag_regjudge
         self.udpPort = 13400 #
         self.udpRecvPort = self.udpPort + 1 #受控端udp接收端口
         self.masterIP = master_ip #控制端ip
@@ -206,6 +223,7 @@ class clientThread(QThread):
         self.fileExplorer = FileExplorer() #初始化一个list，是当前目录下所有文件的，但还没有调用，是通过一个exec函数调用的
         #print("initialization2")
         self.threadExplorer = ThreadExplorer()
+        self.regExplorer = RegExplorer()
         self.p = None
         
         self.enableRun = True
@@ -254,6 +272,9 @@ class clientThread(QThread):
             elif flag_picjudge == True:
                 flag_picjudge = False
                 self.picsignal.emit("judge")
+            elif flag_regjudge == True:
+                flag_regjudge = False
+                self.regstartsignal.emit("judge")
             else:
                 time.sleep(1)
 
@@ -312,6 +333,15 @@ class clientThread(QThread):
                     self.tcpPieceSend(data, self.tcpSocket, 1024)
                     print("finish sending threadlist")
 
+                elif cmd == "reglist":
+                    self.tcpSocket.send(struct.pack('i', len(data)))
+                    self.tcpPieceSend(data, self.tcpSocket, 1024)
+                    print("finish sending reglist")
+
+                # elif cmd == "regstart":
+                #     self.tcpSocket.send(struct.pack('i', len(data)))
+                #     self.tcpPieceSend(data, self.tcpSocket, 1024)
+
                 elif cmd == "file":
                     length = os.path.getsize(data)
                     self.tcpSocket.send(struct.pack('i', length))
@@ -369,6 +399,8 @@ class clientThread(QThread):
         global flag_lsjudge
         global flag_pic
         global flag_picjudge
+        global flag_regjudge
+        global flag_reg
         print("udp 接收器已启动")
         while True:
             data, addr = self.udpRecvSocket.recvfrom(1024) #recv看起来正常，一直接收udp发来的东西，然后判端功能
@@ -493,11 +525,45 @@ class clientThread(QThread):
                     pass
                 self.mutex.unlock()
 
+            elif cmd == "reg":
+                self.mutex.lock()
+                flag_regjudge = True
+                self.cond.wait(self.mutex)
+                if flag_reg == True:
+                    print("Start reg control")
+                    self.regExplorer.path = ''
+                    self.transportReg()
+                else:
+                    pass
+                self.mutex.unlock()
+
+            elif cmd == "regroot":
+                self.regExplorer.path = ''
+                self.transportReg()
+
+            elif cmd == "regback":
+                self.regExplorer.back()
+                self.transportReg()
+
+            elif cmd == "regSubkey":
+                try:
+                    self.regExplorer.path += allcmd[1] + r'\\'
+                except:
+                    print("权限不足")
+                self.transportReg()
+
+    # def startReg(self):
+    #     self.tcpSend(cmd="regstart")
 
     def thransportThread(self):
         self.threadExplorer.getList()
         data = json.dumps(self.threadExplorer.Process_message)
         self.tcpSend(cmd="threadlist", data=data.encode('utf8'))
+
+    def transportReg(self):
+        self.regExplorer.getList()
+        data = json.dumps({'data_reg_subdir': self.regExplorer.list_subdir, 'data_reg_keyvalue': self.regExplorer.list_keyvalue, 'data_path':self.regExplorer.path})
+        self.tcpSend(cmd="reglist", data=data.encode('utf8'))
 
     def transportList(self):
         self.fileExplorer.getList()
