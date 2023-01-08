@@ -73,7 +73,7 @@
    <item row="0" column="2">
     <widget class="QGroupBox" name="groupBox_2">
      <property name="title">
-      <string>图像</string>
+      <string>监控</string>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <item>
@@ -105,46 +105,16 @@
       <string>主机信息</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="0" column="0">
+      <item row="1" column="0">
        <layout class="QGridLayout" name="gridLayout_3">
-        <item row="4" column="2" colspan="3">
-         <widget class="QLabel" name="portlabel">
+        <item row="4" column="1">
+         <widget class="QLabel" name="label_3">
           <property name="text">
-           <string>Port</string>
+           <string>Port:</string>
           </property>
          </widget>
         </item>
-        <item row="7" column="2" colspan="2">
-         <widget class="QLineEdit" name="flushtime">
-          <property name="frame">
-           <bool>false</bool>
-          </property>
-          <property name="alignment">
-           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-          </property>
-         </widget>
-        </item>
-        <item row="13" column="4">
-         <widget class="QPushButton" name="restartbutton">
-          <property name="text">
-           <string>重启客户端软件</string>
-          </property>
-          <property name="default">
-           <bool>true</bool>
-          </property>
-          <property name="flat">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="10" column="1">
-         <widget class="QLabel" name="label_16">
-          <property name="text">
-           <string>摄像头控制：</string>
-          </property>
-         </widget>
-        </item>
-        <item row="11" column="2" colspan="3">
+        <item row="15" column="2" colspan="3">
          <widget class="QSlider" name="localwidth">
           <property name="minimum">
            <number>20</number>
@@ -178,6 +148,79 @@
           </property>
          </widget>
         </item>
+        <item row="11" column="3" colspan="2">
+         <widget class="QPushButton" name="startcamera">
+          <property name="text">
+           <string>开启摄像头监控</string>
+          </property>
+         </widget>
+        </item>
+        <item row="11" column="1">
+         <widget class="QLabel" name="label_16">
+          <property name="text">
+           <string>摄像头控制：</string>
+          </property>
+         </widget>
+        </item>
+        <item row="13" column="1">
+         <widget class="QLabel" name="label_17">
+          <property name="text">
+           <string>麦克风控制：</string>
+          </property>
+         </widget>
+        </item>
+        <item row="11" column="2">
+         <widget class="QPushButton" name="get_camera">
+          <property name="text">
+           <string>摄像头拍照</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="2" colspan="2">
+         <widget class="QLineEdit" name="flushtime">
+          <property name="frame">
+           <bool>false</bool>
+          </property>
+          <property name="alignment">
+           <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+          </property>
+         </widget>
+        </item>
+        <item row="15" column="1">
+         <widget class="QLabel" name="label_13">
+          <property name="text">
+           <string>屏幕大小:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="4" column="2" colspan="3">
+         <widget class="QLabel" name="portlabel">
+          <property name="text">
+           <string>Port</string>
+          </property>
+         </widget>
+        </item>
+        <item row="2" column="1">
+         <widget class="QLabel" name="label">
+          <property name="text">
+           <string>IP:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="1" column="1">
+         <widget class="QLabel" name="label_6">
+          <property name="text">
+           <string>是否在线:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="13" column="2">
+         <widget class="QPushButton" name="startaudio">
+          <property name="text">
+           <string>开启麦克风监控</string>
+          </property>
+         </widget>
+        </item>
         <item row="2" column="2" colspan="2">
          <widget class="QLabel" name="iplable">
           <property name="text">
@@ -185,7 +228,85 @@
           </property>
          </widget>
         </item>
-        <item row="12" column="2" colspan="3">
+        <item row="7" column="1">
+         <widget class="QLabel" name="label_10">
+          <property name="text">
+           <string>屏幕刷新时间:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="7" column="4">
+         <widget class="QLabel" name="label_11">
+          <property name="text">
+           <string>* 0.05 S</string>
+          </property>
+         </widget>
+        </item>
+        <item row="18" column="1">
+         <spacer name="verticalSpacer">
+          <property name="orientation">
+           <enum>Qt::Vertical</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>20</width>
+            <height>40</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item row="1" column="2" colspan="2">
+         <widget class="QLabel" name="online_label">
+          <property name="text">
+           <string>离线</string>
+          </property>
+         </widget>
+        </item>
+        <item row="16" column="1">
+         <widget class="QLabel" name="label_14">
+          <property name="text">
+           <string>显示质量:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="QLabel" name="label_8">
+          <property name="text">
+           <string>OS:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="13" column="3" colspan="2">
+         <widget class="QProgressBar" name="audiobar">
+          <property name="value">
+           <number>0</number>
+          </property>
+          <property name="textVisible">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="10" column="1">
+         <widget class="QLabel" name="label_12">
+          <property name="text">
+           <string>屏幕监控:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="18" column="4">
+         <widget class="QPushButton" name="restartbutton">
+          <property name="text">
+           <string>重启客户端软件</string>
+          </property>
+          <property name="default">
+           <bool>true</bool>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="16" column="2" colspan="3">
          <widget class="QSlider" name="remotewidth">
           <property name="minimum">
            <number>20</number>
@@ -207,10 +328,16 @@
           </property>
          </widget>
         </item>
-        <item row="5" column="2" colspan="2">
-         <widget class="QLabel" name="label_9">
+        <item row="2" column="4">
+         <widget class="QPushButton" name="connect_button">
           <property name="text">
-           <string>OS Info</string>
+           <string>建立连接</string>
+          </property>
+          <property name="default">
+           <bool>true</bool>
+          </property>
+          <property name="flat">
+           <bool>true</bool>
           </property>
          </widget>
         </item>
@@ -227,63 +354,21 @@
           </property>
          </widget>
         </item>
-        <item row="1" column="2" colspan="2">
-         <widget class="QLabel" name="online_label">
+        <item row="0" column="1">
+         <widget class="QLabel" name="label_4">
           <property name="text">
-           <string>离线</string>
+           <string>主机名称:</string>
           </property>
          </widget>
         </item>
-        <item row="1" column="1">
-         <widget class="QLabel" name="label_6">
+        <item row="5" column="2" colspan="2">
+         <widget class="QLabel" name="label_9">
           <property name="text">
-           <string>是否在线:</string>
+           <string>OS Info</string>
           </property>
          </widget>
         </item>
-        <item row="12" column="1">
-         <widget class="QLabel" name="label_14">
-          <property name="text">
-           <string>显示质量:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="10" column="2" colspan="3">
-         <widget class="QPushButton" name="get_camera">
-          <property name="text">
-           <string>摄像头拍照</string>
-          </property>
-         </widget>
-        </item>
-        <item row="4" column="1">
-         <widget class="QLabel" name="label_3">
-          <property name="text">
-           <string>Port:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="11" column="1">
-         <widget class="QLabel" name="label_13">
-          <property name="text">
-           <string>屏幕大小:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="9" column="1">
-         <widget class="QLabel" name="label_12">
-          <property name="text">
-           <string>屏幕监控:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="5" column="1">
-         <widget class="QLabel" name="label_8">
-          <property name="text">
-           <string>OS:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="9" column="4">
+        <item row="10" column="2">
          <widget class="QPushButton" name="get_pic">
           <property name="text">
            <string>获取截图</string>
@@ -296,77 +381,7 @@
           </property>
          </widget>
         </item>
-        <item row="13" column="1">
-         <spacer name="verticalSpacer">
-          <property name="orientation">
-           <enum>Qt::Vertical</enum>
-          </property>
-          <property name="sizeHint" stdset="0">
-           <size>
-            <width>20</width>
-            <height>40</height>
-           </size>
-          </property>
-         </spacer>
-        </item>
-        <item row="0" column="2" colspan="2">
-         <widget class="QLineEdit" name="newname_input">
-          <property name="enabled">
-           <bool>true</bool>
-          </property>
-          <property name="frame">
-           <bool>false</bool>
-          </property>
-          <property name="readOnly">
-           <bool>false</bool>
-          </property>
-          <property name="placeholderText">
-           <string>请输入新名称</string>
-          </property>
-         </widget>
-        </item>
-        <item row="7" column="4">
-         <widget class="QLabel" name="label_11">
-          <property name="text">
-           <string>* 0.05 S</string>
-          </property>
-         </widget>
-        </item>
-        <item row="7" column="1">
-         <widget class="QLabel" name="label_10">
-          <property name="text">
-           <string>屏幕刷新时间:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="4">
-         <widget class="QPushButton" name="connect_button">
-          <property name="text">
-           <string>建立连接</string>
-          </property>
-          <property name="default">
-           <bool>true</bool>
-          </property>
-          <property name="flat">
-           <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-        <item row="2" column="1">
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>IP:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QLabel" name="label_4">
-          <property name="text">
-           <string>主机名称:</string>
-          </property>
-         </widget>
-        </item>
-        <item row="9" column="2" colspan="2">
+        <item row="10" column="3" colspan="2">
          <widget class="QPushButton" name="startpic">
           <property name="text">
            <string>开启屏幕监控</string>
@@ -392,6 +407,22 @@
           </property>
           <property name="flat">
            <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="2" colspan="2">
+         <widget class="QLineEdit" name="newname_input">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
+          <property name="frame">
+           <bool>false</bool>
+          </property>
+          <property name="readOnly">
+           <bool>false</bool>
+          </property>
+          <property name="placeholderText">
+           <string>请输入新名称</string>
           </property>
          </widget>
         </item>

@@ -34,6 +34,10 @@ flag_ls = False
 flag_lsjudge = False
 flag_picjudge = False
 flag_pic = False
+flag_audiojudge = False
+flag_audio = False
+flag_camerajudge = False
+flag_camera = False
 flag_regjudge = False
 flag_reg = False
 config = configparser.ConfigParser()
@@ -103,6 +107,8 @@ class ClientMain(QWidget, Ui_MainWindow):
             self.cal.threadsignal.connect(self.threadcrtlbox)
             self.cal.filesiganl.connect(self.filecrtlbox)
             self.cal.picsignal.connect(self.piccrtlbox)
+            self.cal.camerasignal.connect(self.piccrtlbox)
+            self.cal.audiosignal.connect(self.audiocrtlbox)
             self.cal.regstartsignal.connect(self.regcrtlbox)
             # hello
             self.cal.start()
@@ -120,6 +126,27 @@ class ClientMain(QWidget, Ui_MainWindow):
         else:
             pass
         self.cal.resume()
+
+    def audiocrtlbox(self,mes):
+        global flag_audio
+        print(mes)
+        reply = QMessageBox.question(self, '提示', '是否接受麦克风录制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            flag_audio = True
+        else:
+            pass
+        self.cal.resume()
+
+    def cameractrlbox(self,mes):
+        global flag_camera
+        print(mes)
+        reply = QMessageBox.question(self, '提示', '是否接受摄像头录制?',QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            flag_camera = True
+        else:
+            pass
+        self.cal.resume()
+
     def filecrtlbox(self,mes):
         global flag_ls
         print(mes)
@@ -201,6 +228,8 @@ class clientThread(QThread):
     threadsignal = pyqtSignal(str)
     filesiganl = pyqtSignal(str)
     picsignal = pyqtSignal(str)
+    camerasignal = pyqtSignal(str)
+    audiosignal = pyqtSignal(str)
     regstartsignal = pyqtSignal(str)
     def __init__(self):
         super().__init__()
@@ -213,6 +242,8 @@ class clientThread(QThread):
         global flag_lsjudge
         global flag_picjudge
         global flag_regjudge
+        global flag_camerajudge
+        global flag_audiojudge
         self.udpPort = 13400 #
         self.udpRecvPort = self.udpPort + 1 #受控端udp接收端口
         self.masterIP = master_ip #控制端ip
@@ -257,8 +288,13 @@ class clientThread(QThread):
         self.enablePic = True
         self.picTime = 50  # 每张截图时间间隔为 picTime * 0.05
 
+        self.enableCamera = True
+        self.cameraThread = None
+
         self.picThread = None
         self.width = 672
+
+        self.audioThread = None
 
         self.attacker = Attacker()
         self.searchMaster()
@@ -280,6 +316,12 @@ class clientThread(QThread):
             elif flag_regjudge == True:
                 flag_regjudge = False
                 self.regstartsignal.emit("judge")
+            elif flag_camerajudge == True:
+                flag_camerajudge = False
+                self.camerasignal.emit("judge")
+            elif flag_audiojudge == True:
+                flag_audiojudge = False
+                self.audiosignal.emit("judge")
             else:
                 time.sleep(1)
 
@@ -331,6 +373,14 @@ class clientThread(QThread):
                     self.tcpSocket.send(struct.pack('iii', *data.size, img_len))
                     self.tcpPieceSend(imd, self.tcpSocket, 1024)
                     print("finish sending camera image")
+
+                elif cmd == "audio_wave":
+                    print("大傻逼1")
+                    self.tcpSocket.send(struct.pack('i', len(data)))
+                    print("大傻逼2")
+                    self.tcpPieceSend(data, self.tcpSocket, 1024)
+                    print("大傻逼3")
+                    print("finish sending audio wave")
 
 
                 elif cmd == "response":
@@ -412,6 +462,10 @@ class clientThread(QThread):
         global flag_lsjudge
         global flag_pic
         global flag_picjudge
+        global flag_camera
+        global flag_camerajudge
+        global flag_audio
+        global flag_audiojudge
         global flag_regjudge
         global flag_reg
         print("udp 接收器已启动")
@@ -446,7 +500,8 @@ class clientThread(QThread):
             elif cmd == 'floodStop':
                 self.attacker.enableStop = True
             elif cmd == 'camera':
-                self.sendCamera()
+                self.enableCamera = True
+                self.sendCamera(disposable=True)
             elif cmd == 'pic':
                 self.enablePic = True
                 self.sendPic(disposable=True)
@@ -464,10 +519,47 @@ class clientThread(QThread):
                 else:
                     pass
                 self.mutex.unlock()
+
+            elif cmd == 'audiostart':
+                self.mutex.lock()
+                flag_audiojudge = True
+                self.cond.wait(self.mutex)
+                if flag_audio == True:
+                    print("Start microphone recording")
+                    self.enableaudio = True
+                    if not self.audioThread:
+                        self.audioThread = Thread(target=self.sendAudio, daemon=True)
+                        self.audioThread.start()
+                else:
+                    pass
+                self.mutex.unlock()
+
+            elif cmd == 'camerastart':
+                self.mutex.lock()
+                flag_camerajudge = True
+                self.cond.wait(self.mutex)
+                if flag_camera == True:
+                    print("Start camera recording")
+                    self.enableCamera = True
+                    if not self.cameraThread:
+                        self.cameraThread = Thread(target=self.sendCamera, daemon=True)
+                        self.cameraThread.start()
+                else:
+                    pass
+                self.mutex.unlock()
                 
             elif cmd == "picstop":
                 self.enablePic = False
                 self.picThread = None
+
+            elif cmd == "camerastop":
+                self.enableCamera = False
+                self.cameraThread = None
+
+            elif cmd == "audiostop":
+                self.enableAudio = False
+                self.audioThread = None
+            
             elif cmd == "set":
                 if allcmd[1] == "pictime":
                     self.picTime = int(allcmd[2])
@@ -585,13 +677,17 @@ class clientThread(QThread):
         data = json.dumps({'list': self.fileExplorer.list, 'pwd': os.getcwd()})
         self.tcpSend(cmd="filelist", data=data.encode('utf8'))
 
-    def sendCamera(self):
-        cap= cv2.VideoCapture(0)                       # 打开摄像头
-        ret, frame = cap.read()                        # 获得一帧图像
-        im = Image.fromarray(frame)
-        cap. release () 
-        im = im.resize((210, 180), Image.ANTIALIAS)
-        self.tcpSend(cmd='camera_im', data=im)
+    def sendCamera(self, disposable=False):
+        while self.enableCamera:
+            cap= cv2.VideoCapture(0)                       # 打开摄像头
+            ret, frame = cap.read()                        # 获得一帧图像
+            im = Image.fromarray(frame)
+            cap. release () 
+            im = im.resize((210, 180), Image.ANTIALIAS)
+            self.tcpSend(cmd='camera_im', data=im)
+            time.sleep(self.picTime * 0.5)
+            if disposable:
+                break
 
     def sendPic(self, disposable=False):
         while self.enablePic:
@@ -605,6 +701,51 @@ class clientThread(QThread):
             time.sleep(self.picTime * 0.5)
             if disposable:
                 break
+
+    def sendAudio(self, record_second=4):
+        CHUNK = 1024
+        FORMAT = pyaudio.paInt16
+        CHANNELS = 2
+        RATE = 44100
+        p = pyaudio.PyAudio()
+        stream = p.open(format=FORMAT,
+                channels=CHANNELS,
+                rate=RATE,
+                input=True,
+                frames_per_buffer=CHUNK)
+
+        # while self.enableaudio:
+        #     datas = []
+        #     # print("* recording")
+        #     # for i in tqdm(range(0, int(RATE / CHUNK * record_second))):
+        #     for i in range(0, int(RATE / CHUNK * record_second)):
+        #         data = stream.read(CHUNK)
+        #         datas += data
+        #     # print("* done recording")
+        #     stream.stop_stream()
+        #     stream.close()
+        #     p.terminate()
+        #     data = [0,1]
+        #     self.tcpSend(cmd='audio_wave', data=data)
+        #     # time.sleep(self.picTime * 0.5)
+
+        datas = []
+        # print("* recording")
+        # for i in tqdm(range(0, int(RATE / CHUNK * record_second))):
+        for i in range(0, int(RATE / CHUNK * record_second)):
+            data = stream.read(CHUNK)
+            datas += data
+        # print("* done recording")
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+        data = []
+        # for i in range(0,900):
+        #     data.append(i)
+        print('傻逼1')
+        self.tcpSend(cmd='audio_wave', data=data)
+        print("傻逼2")
+
 
     def searchMaster(self):
         udpPacket = UdpPacket() #udp数据报格式

